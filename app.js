@@ -6,44 +6,49 @@ const fs = require("fs");
 
 const app = express();
 
-
+// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-
-
+//
+// ORDERS API
+//
 app.get("/orders", async (req, res) => {
   try {
     const response = await wc.get("orders", { per_page: 50 });
     res.json(response.data);
   } catch (err) {
-    console.error("❌ Error fetching orders:", err.response?.data || err.message);
-    res.status(500).json({ error: "Failed to fetch orders" });
+    console.error("Error fetching orders:", err.response?.data || err.message);
+    res.status(500).json({
+      error: "Failed to fetch orders",
+      details: err.response?.data || err.message
+    });
   }
 });
-
 
 app.get("/orders/:id", async (req, res) => {
   try {
     const response = await wc.get(`orders/${req.params.id}`);
     res.json(response.data);
   } catch (err) {
-    console.error("❌ Error fetching order:", err.response?.data || err.message);
-    res.status(500).json({ error: "Failed to fetch order" });
+    console.error("Error fetching order:", err.response?.data || err.message);
+    res.status(500).json({
+      error: "Failed to fetch order",
+      details: err.response?.data || err.message
+    });
   }
 });
-
 
 app.put("/orders/:id", async (req, res) => {
   try {
     const response = await wc.put(`orders/${req.params.id}`, req.body);
     res.json(response.data);
   } catch (err) {
-    console.error(
-      "❌ Error updating order:",
-      err.response?.data || err.message
-    );
-    res.status(500).json({ error: "Failed to update order" });
+    console.error("Error updating order:", err.response?.data || err.message);
+    res.status(500).json({
+      error: "Failed to update order",
+      details: err.response?.data || err.message
+    });
   }
 });
 
@@ -56,10 +61,10 @@ app.use(
   })
 );
 
-
+//
+// DEVICE TOKEN MANAGEMENT
+//
 const expo = new Expo();
-
-
 let deviceTokens = [];
 const TOKENS_FILE = "./tokens.json";
 
@@ -67,9 +72,9 @@ function loadTokens() {
   if (fs.existsSync(TOKENS_FILE)) {
     try {
       deviceTokens = JSON.parse(fs.readFileSync(TOKENS_FILE));
-      console.log("📲 Loaded tokens:", deviceTokens);
+      console.log("Loaded tokens:", deviceTokens);
     } catch (err) {
-      console.log("⚠️ Failed to load tokens:", err.message);
+      console.log("Failed to load tokens:", err.message);
       deviceTokens = [];
     }
   }
@@ -81,14 +86,7 @@ function saveTokens() {
 
 loadTokens();
 
-
 app.post("/save-token", (req, res) => {
-  console.log("📥 Incoming token payload:", req.body);
-
-  if (!req.body) {
-    return res.status(400).json({ error: "No body received" });
-  }
-
   const { expoPushToken, fcmToken } = req.body;
 
   if (!expoPushToken && !fcmToken) {
@@ -97,11 +95,8 @@ app.post("/save-token", (req, res) => {
 
   const tokenObj = { expoPushToken, fcmToken };
 
-
   const exists = deviceTokens.find(
-    (t) =>
-      t.expoPushToken === expoPushToken ||
-      t.fcmToken === fcmToken
+    (t) => t.expoPushToken === expoPushToken || t.fcmToken === fcmToken
   );
 
   if (!exists) {
@@ -109,11 +104,8 @@ app.post("/save-token", (req, res) => {
     saveTokens();
   }
 
-  console.log("✅ Saved Token:", tokenObj);
-
   return res.json({ success: true });
 });
-
 
 app.get("/test-notification", async (req, res) => {
   try {
@@ -124,8 +116,8 @@ app.get("/test-notification", async (req, res) => {
         messages.push({
           to: t.expoPushToken,
           title: "Test Notification",
-          body: "Your WooCommerce app is working!",
-          sound: "default",
+          body: "Push notifications are working",
+          sound: "default"
         });
       }
     });
@@ -141,30 +133,36 @@ app.get("/test-notification", async (req, res) => {
   }
 });
 
-
-
-
-
+//
+// WOOCOMMERCE CLIENT
+//
 const wc = new WooCommerceRestApi({
   url: process.env.WOO_URL,
   consumerKey: process.env.WOO_CK,
   consumerSecret: process.env.WOO_CS,
   version: "wc/v3",
-  queryStringAuth: true,
+  queryStringAuth: true
 });
 
-
+//
+// PRODUCTS
+//
 app.get("/products", async (req, res) => {
   try {
     const response = await wc.get("products", { per_page: 100 });
     res.json(response.data);
   } catch (err) {
-    console.error("❌ Error fetching products:", err.response?.data || err.message);
-    res.status(500).json({ error: "Failed to fetch products" });
+    console.error("Error fetching products:", err.response?.data || err.message);
+    res.status(500).json({
+      error: "Failed to fetch products",
+      details: err.response?.data || err.message
+    });
   }
 });
 
-
+//
+// CUSTOMERS AGGREGATED LIST
+//
 app.get("/customers", async (req, res) => {
   try {
     const response = await wc.get("orders", { per_page: 100, status: "any" });
@@ -177,7 +175,6 @@ app.get("/customers", async (req, res) => {
       const phone = billing.phone?.trim() || null;
       const email = billing.email?.trim() || null;
 
- 
       const key = phone || email;
       if (!key) return;
 
@@ -191,18 +188,15 @@ app.get("/customers", async (req, res) => {
           state: billing.state || "",
           totalOrders: 1,
           totalSpent: parseFloat(order.total) || 0,
-          lastOrderDate: order.date_created || null,
+          lastOrderDate: order.date_created || null
         };
       } else {
-
         customers[key].totalOrders += 1;
         customers[key].totalSpent += parseFloat(order.total) || 0;
-
 
         if (email && email !== customers[key].email) {
           customers[key].email = email;
         }
-
 
         const oldDate = new Date(customers[key].lastOrderDate || 0);
         const newDate = new Date(order.date_created || 0);
@@ -210,28 +204,30 @@ app.get("/customers", async (req, res) => {
       }
     });
 
-
     const result = Object.values(customers).map((c) => ({
       ...c,
-      totalSpent: Number(c.totalSpent.toFixed(2)),
+      totalSpent: Number(c.totalSpent.toFixed(2))
     }));
 
     res.json(result);
   } catch (err) {
-    console.error("❌ Error fetching customers:", err.response?.data || err.message);
-    res.status(500).json({ error: "Failed to fetch customers" });
+    console.error("Error fetching customers:", err.response?.data || err.message);
+    res.status(500).json({
+      error: "Failed to fetch customers",
+      details: err.response?.data || err.message
+    });
   }
 });
 
-
-
+//
+// CUSTOMER ORDERS BY EMAIL OR PHONE
+//
 app.get("/customers/orders/:id", async (req, res) => {
   try {
     const id = decodeURIComponent(req.params.id).trim().toLowerCase();
 
     const response = await wc.get("orders", { per_page: 100, status: "any" });
     const orders = response.data || [];
-
 
     const filtered = orders.filter((o) => {
       const email = (o.billing.email || "").trim().toLowerCase();
@@ -243,24 +239,24 @@ app.get("/customers/orders/:id", async (req, res) => {
 
     res.json(filtered);
   } catch (err) {
-    console.error("❌ Error fetching orders:", err.response?.data || err.message);
-    res.status(500).json({ error: "Failed to fetch customer orders" });
+    console.error("Error fetching orders:", err.response?.data || err.message);
+    res.status(500).json({
+      error: "Failed to fetch customer orders",
+      details: err.response?.data || err.message
+    });
   }
 });
 
-
-
+//
+// WEBHOOK: ORDER CREATED
+//
 app.post("/order-created", async (req, res) => {
   try {
     const order = req.body;
 
-
     if (!order || !order.id) {
       return res.status(200).send("OK");
     }
-
-
-    console.log(`🆕 Order Received → #${order.id} | Amount: ₹${order.total}`);
 
     const messages = [];
 
@@ -269,9 +265,9 @@ app.post("/order-created", async (req, res) => {
         messages.push({
           to: t.expoPushToken,
           sound: "default",
-          title: `🛒 New Order #${order.id}`,
-          body: `Amount ₹${order.total} from ${order.billing.first_name}`,
-          data: { orderId: order.id },
+          title: `New Order #${order.id}`,
+          body: `Amount ₹${order.total}`,
+          data: { orderId: order.id }
         });
       }
     });
@@ -288,10 +284,11 @@ app.post("/order-created", async (req, res) => {
   }
 });
 
-
+//
+// START SERVER
+//
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, "0.0.0.0", () =>
-  console.log(`🚀 Backend running on port ${PORT}`)
-);
-
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Backend running on port ${PORT}`);
+});
